@@ -1,13 +1,15 @@
 // script.js - Main JavaScript for Linear Algebra Vector Checker
 
 // ===== Global Variables =====
-let currentDimension = '2D';
+let currentDimension = 3; // Default to 3D
 let vectors = [];
 let isRotating = false;
 let showLabels = true;
 let graphRotation = { x: 30, y: 45, z: 0 };
 
 // ===== DOM Elements =====
+const dimensionInput = document.getElementById('dimensionInput');
+const vectorCountSpan = document.getElementById('vectorCount');
 const vectorInputsContainer = document.getElementById('vectorInputs');
 const addVectorBtn = document.getElementById('addVectorBtn');
 const removeVectorBtn = document.getElementById('removeVectorBtn');
@@ -17,6 +19,8 @@ const randomBtn = document.getElementById('randomBtn');
 const mathResults = document.getElementById('mathResults');
 const graphCanvas = document.getElementById('graphCanvas');
 const graphPlaceholder = document.getElementById('graphPlaceholder');
+const graphicalResults = document.getElementById('graphicalResults');
+const highDimNote = document.getElementById('highDimNote');
 const rotateBtn = document.getElementById('rotateBtn');
 const exportGraphBtn = document.getElementById('exportGraphBtn');
 const toggleLabelsBtn = document.getElementById('toggleLabelsBtn');
@@ -24,7 +28,7 @@ const exportResultsBtn = document.getElementById('exportResultsBtn');
 const exportGraphImageBtn = document.getElementById('exportGraphImageBtn');
 const copyResultsBtn = document.getElementById('copyResultsBtn');
 const exampleBtns = document.querySelectorAll('.example-btn');
-const dimensionBtns = document.querySelectorAll('.dimension-btn');
+const quickDimBtns = document.querySelectorAll('.quick-dim-btn');
 
 // ===== Mobile Navigation =====
 const hamburger = document.querySelector('.hamburger');
@@ -48,11 +52,15 @@ if (hamburger && navMenu) {
 // ===== Initialize Application =====
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize vector inputs
-    addVector();
-    addVector();
+    vectors = Array(3).fill().map(() => Array(currentDimension).fill(0));
     
     // Set up event listeners
     setupEventListeners();
+    
+    // Update UI
+    updateVectorInputs();
+    updateVectorCount();
+    updateGraphicalSection();
     
     // Draw initial graph placeholder
     drawGraphPlaceholder();
@@ -60,22 +68,53 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ===== Event Listeners Setup =====
 function setupEventListeners() {
-    // Dimension selection
-    dimensionBtns.forEach(btn => {
+    // Dimension input change
+    dimensionInput.addEventListener('change', () => {
+        const newDim = parseInt(dimensionInput.value);
+        if (newDim < 2 || newDim > 10) {
+            alert('Dimension must be between 2 and 10');
+            dimensionInput.value = currentDimension;
+            return;
+        }
+        
+        currentDimension = newDim;
+        
+        // Update quick dimension buttons
+        updateQuickDimButtons();
+        
+        // Update vectors to new dimension
+        vectors = vectors.map(vector => {
+            if (vector.length < currentDimension) {
+                // Add zeros for new dimensions
+                return [...vector, ...Array(currentDimension - vector.length).fill(0)];
+            } else if (vector.length > currentDimension) {
+                // Truncate for lower dimensions
+                return vector.slice(0, currentDimension);
+            }
+            return vector;
+        });
+        
+        // If we have fewer vectors than dimension+2, add some
+        if (vectors.length < currentDimension + 1 && vectors.length < 10) {
+            const vectorsToAdd = Math.min(currentDimension + 1 - vectors.length, 10 - vectors.length);
+            for (let i = 0; i < vectorsToAdd; i++) {
+                vectors.push(Array(currentDimension).fill(0));
+            }
+        }
+        
+        // Update UI
+        updateVectorInputs();
+        updateVectorCount();
+        updateGraphicalSection();
+        clearResults();
+    });
+    
+    // Quick dimension buttons
+    quickDimBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            dimensionBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentDimension = btn.dataset.dim;
-            
-            // Clear vectors when changing dimension
-            vectors = [];
-            vectorInputsContainer.innerHTML = '';
-            addVector();
-            addVector();
-            
-            // Update UI
-            updateVectorInputs();
-            clearResults();
+            const dim = parseInt(btn.dataset.dim);
+            dimensionInput.value = dim;
+            dimensionInput.dispatchEvent(new Event('change'));
         });
     });
     
@@ -90,7 +129,7 @@ function setupEventListeners() {
     // Random vectors button
     randomBtn.addEventListener('click', generateRandomVectors);
     
-    // Graph controls
+    // Graph controls (only for 2D/3D)
     if (rotateBtn) rotateBtn.addEventListener('click', toggleRotation);
     if (exportGraphBtn) exportGraphBtn.addEventListener('click', exportGraph);
     if (toggleLabelsBtn) toggleLabelsBtn.addEventListener('click', toggleLabels);
@@ -106,27 +145,53 @@ function setupEventListeners() {
     });
 }
 
+// ===== Update Functions =====
+function updateQuickDimButtons() {
+    quickDimBtns.forEach(btn => {
+        const dim = parseInt(btn.dataset.dim);
+        if (dim === currentDimension) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+}
+
+function updateGraphicalSection() {
+    if (currentDimension <= 3) {
+        // Show graphical section for 2D and 3D
+        graphicalResults.style.display = 'block';
+        highDimNote.style.display = 'none';
+        
+        // Adjust dashboard layout
+        document.querySelector('.dashboard').style.gridTemplateColumns = '1fr 2fr';
+    } else {
+        // Hide graphical section for higher dimensions
+        graphicalResults.style.display = 'none';
+        
+        // Adjust dashboard layout to single column
+        document.querySelector('.dashboard').style.gridTemplateColumns = '1fr';
+        
+        // Hide graph if visible
+        graphPlaceholder.style.display = 'flex';
+        graphCanvas.style.display = 'none';
+    }
+}
+
 // ===== Vector Management Functions =====
 function addVector() {
-    const vectorCount = vectors.length;
-    
-    if (currentDimension === '2D' && vectorCount >= 5) {
-        alert('Maximum 5 vectors allowed for 2D visualization');
+    if (vectors.length >= 10) {
+        alert('Maximum 10 vectors allowed');
         return;
     }
     
-    if (currentDimension === '3D' && vectorCount >= 4) {
-        alert('Maximum 4 vectors allowed for 3D visualization');
-        return;
-    }
-    
-    // Create new vector with default values
-    const newVector = currentDimension === '2D' ? [0, 0] : [0, 0, 0];
-    vectors.push(newVector);
+    // Create new vector with zeros for current dimension
+    vectors.push(Array(currentDimension).fill(0));
     
     // Update UI
     updateVectorInputs();
     updateVectorControls();
+    updateVectorCount();
 }
 
 function removeVector() {
@@ -140,20 +205,17 @@ function removeVector() {
     // Update UI
     updateVectorInputs();
     updateVectorControls();
+    updateVectorCount();
 }
 
 function clearVectors() {
-    if (vectors.length <= 2) {
-        // Reset to two zero vectors
-        vectors = currentDimension === '2D' ? [[0, 0], [0, 0]] : [[0, 0, 0], [0, 0, 0]];
-    } else {
-        // Keep only two zero vectors
-        vectors = currentDimension === '2D' ? [[0, 0], [0, 0]] : [[0, 0, 0], [0, 0, 0]];
-    }
+    // Reset to three zero vectors
+    vectors = Array(3).fill().map(() => Array(currentDimension).fill(0));
     
     // Update UI
     updateVectorInputs();
     updateVectorControls();
+    updateVectorCount();
     clearResults();
 }
 
@@ -166,22 +228,31 @@ function updateVectorInputs() {
         
         const label = document.createElement('div');
         label.className = 'vector-label';
-        label.textContent = `Vector ${index + 1}:`;
+        label.textContent = `v${index + 1}:`;
         
         const components = document.createElement('div');
         components.className = 'vector-components';
         
         // Create input for each component
         vector.forEach((component, compIndex) => {
+            const componentGroup = document.createElement('div');
+            componentGroup.className = 'component-group';
+            
             const compInput = document.createElement('input');
             compInput.type = 'number';
             compInput.className = 'comp-input';
             compInput.value = component;
             compInput.dataset.vectorIndex = index;
             compInput.dataset.componentIndex = compIndex;
-            compInput.placeholder = currentDimension === '2D' 
-                ? (compIndex === 0 ? 'x' : 'y') 
-                : (compIndex === 0 ? 'x' : compIndex === 1 ? 'y' : 'z');
+            compInput.step = 'any';
+            
+            // Label components based on dimension
+            if (currentDimension <= 3) {
+                const labels = ['x', 'y', 'z'];
+                compInput.placeholder = labels[compIndex] || `c${compIndex + 1}`;
+            } else {
+                compInput.placeholder = `c${compIndex + 1}`;
+            }
             
             compInput.addEventListener('input', (e) => {
                 const vectorIndex = parseInt(e.target.dataset.vectorIndex);
@@ -191,7 +262,18 @@ function updateVectorInputs() {
                 vectors[vectorIndex][componentIndex] = value;
             });
             
-            components.appendChild(compInput);
+            const compLabel = document.createElement('div');
+            compLabel.className = 'comp-label';
+            if (currentDimension <= 3) {
+                const labels = ['x', 'y', 'z'];
+                compLabel.textContent = labels[compIndex] || `c${compIndex + 1}`;
+            } else {
+                compLabel.textContent = `c${compIndex + 1}`;
+            }
+            
+            componentGroup.appendChild(compInput);
+            componentGroup.appendChild(compLabel);
+            components.appendChild(componentGroup);
         });
         
         vectorElement.appendChild(label);
@@ -201,9 +283,12 @@ function updateVectorInputs() {
 }
 
 function updateVectorControls() {
-    const maxVectors = currentDimension === '2D' ? 5 : 4;
     removeVectorBtn.disabled = vectors.length <= 2;
-    addVectorBtn.disabled = vectors.length >= maxVectors;
+    addVectorBtn.disabled = vectors.length >= 10;
+}
+
+function updateVectorCount() {
+    vectorCountSpan.textContent = vectors.length;
 }
 
 // ===== Analysis Functions =====
@@ -219,14 +304,16 @@ function analyzeVectors() {
     // Display mathematical results
     displayMathematicalResults(results);
     
-    // Draw graphical representation
-    drawGraph();
+    // Draw graphical representation only for 2D and 3D
+    if (currentDimension <= 3) {
+        drawGraph();
+    }
 }
 
 function validateVectors() {
     // Check if all vectors have at least one non-zero component
     const allZero = vectors.every(vector => 
-        vector.every(component => component === 0)
+        vector.every(component => Math.abs(component) < 1e-10)
     );
     
     if (allZero) {
@@ -239,30 +326,32 @@ function validateVectors() {
 
 function calculateLinearAlgebraResults() {
     const results = {
-        vectors: [...vectors],
+        vectors: vectors.map(v => [...v]),
         dimension: currentDimension,
         rank: 0,
         isLinearlyIndependent: false,
         determinant: null,
         rrefMatrix: [],
-        dependencyRelation: null
+        dependencyRelation: null,
+        basisVectors: []
     };
     
-    // Calculate rank
+    // Calculate rank using Gaussian elimination
     results.rank = calculateRank(vectors);
     
     // Determine linear dependency
     results.isLinearlyIndependent = results.rank === vectors.length;
     
-    // Calculate determinant for square matrices
-    if (currentDimension === '2D' && vectors.length === 2) {
-        results.determinant = calculate2DDeterminant(vectors[0], vectors[1]);
-    } else if (currentDimension === '3D' && vectors.length === 3) {
-        results.determinant = calculate3DDeterminant(vectors[0], vectors[1], vectors[2]);
+    // Calculate determinant for square matrices (when number of vectors equals dimension)
+    if (vectors.length === currentDimension) {
+        results.determinant = calculateDeterminant(vectors);
     }
     
     // Calculate RREF
     results.rrefMatrix = calculateRREF(vectors);
+    
+    // Find basis vectors (pivot columns)
+    results.basisVectors = findBasisVectors(vectors);
     
     // Find dependency relation if dependent
     if (!results.isLinearlyIndependent) {
@@ -272,20 +361,19 @@ function calculateLinearAlgebraResults() {
     return results;
 }
 
-function calculateRank(vectors) {
-    // Convert vectors to matrix (rows as vectors)
-    const matrix = vectors.map(v => [...v]);
-    const rows = matrix.length;
-    const cols = matrix[0].length;
+function calculateRank(matrix) {
+    // Create a copy to avoid modifying original
+    const A = matrix.map(row => [...row]);
+    const m = A.length; // number of vectors
+    const n = A[0].length; // dimension
     
-    // Apply Gaussian elimination
     let rank = 0;
     
-    for (let col = 0; col < cols && rank < rows; col++) {
+    for (let col = 0; col < n && rank < m; col++) {
         // Find pivot
         let pivotRow = -1;
-        for (let row = rank; row < rows; row++) {
-            if (Math.abs(matrix[row][col]) > 1e-10) {
+        for (let row = rank; row < m; row++) {
+            if (Math.abs(A[row][col]) > 1e-10) {
                 pivotRow = row;
                 break;
             }
@@ -294,22 +382,20 @@ function calculateRank(vectors) {
         if (pivotRow === -1) continue;
         
         // Swap rows
-        if (pivotRow !== rank) {
-            [matrix[rank], matrix[pivotRow]] = [matrix[pivotRow], matrix[rank]];
-        }
+        [A[rank], A[pivotRow]] = [A[pivotRow], A[rank]];
         
         // Normalize pivot row
-        const pivot = matrix[rank][col];
-        for (let j = col; j < cols; j++) {
-            matrix[rank][j] /= pivot;
+        const pivot = A[rank][col];
+        for (let j = col; j < n; j++) {
+            A[rank][j] /= pivot;
         }
         
         // Eliminate other rows
-        for (let row = 0; row < rows; row++) {
-            if (row !== rank && Math.abs(matrix[row][col]) > 1e-10) {
-                const factor = matrix[row][col];
-                for (let j = col; j < cols; j++) {
-                    matrix[row][j] -= factor * matrix[rank][j];
+        for (let row = 0; row < m; row++) {
+            if (row !== rank && Math.abs(A[row][col]) > 1e-10) {
+                const factor = A[row][col];
+                for (let j = col; j < n; j++) {
+                    A[row][j] -= factor * A[rank][j];
                 }
             }
         }
@@ -320,50 +406,84 @@ function calculateRank(vectors) {
     return rank;
 }
 
-function calculate2DDeterminant(v1, v2) {
-    return v1[0] * v2[1] - v1[1] * v2[0];
+function calculateDeterminant(matrix) {
+    // Only for square matrices
+    const n = matrix.length;
+    
+    // Create a copy
+    const A = matrix.map(row => [...row]);
+    let det = 1;
+    
+    for (let i = 0; i < n; i++) {
+        // Find pivot
+        let pivotRow = i;
+        for (let row = i + 1; row < n; row++) {
+            if (Math.abs(A[row][i]) > Math.abs(A[pivotRow][i])) {
+                pivotRow = row;
+            }
+        }
+        
+        // If pivot is zero, determinant is zero
+        if (Math.abs(A[pivotRow][i]) < 1e-10) {
+            return 0;
+        }
+        
+        // Swap rows if necessary
+        if (pivotRow !== i) {
+            [A[i], A[pivotRow]] = [A[pivotRow], A[i]];
+            det *= -1; // Row swap changes sign of determinant
+        }
+        
+        // Multiply determinant by pivot
+        det *= A[i][i];
+        
+        // Eliminate below
+        for (let row = i + 1; row < n; row++) {
+            const factor = A[row][i] / A[i][i];
+            for (let col = i; col < n; col++) {
+                A[row][col] -= factor * A[i][col];
+            }
+        }
+    }
+    
+    return det;
 }
 
-function calculate3DDeterminant(v1, v2, v3) {
-    return v1[0] * (v2[1] * v3[2] - v2[2] * v3[1]) -
-           v1[1] * (v2[0] * v3[2] - v2[2] * v3[0]) +
-           v1[2] * (v2[0] * v3[1] - v2[1] * v3[0]);
-}
-
-function calculateRREF(vectors) {
-    const matrix = vectors.map(v => [...v]);
-    const rows = matrix.length;
-    const cols = matrix[0].length;
+function calculateRREF(matrix) {
+    // Create a copy
+    const A = matrix.map(row => [...row]);
+    const m = A.length;
+    const n = A[0].length;
     
     let lead = 0;
-    for (let r = 0; r < rows; r++) {
-        if (lead >= cols) break;
+    for (let r = 0; r < m; r++) {
+        if (lead >= n) break;
         
         let i = r;
-        while (Math.abs(matrix[i][lead]) < 1e-10) {
+        while (Math.abs(A[i][lead]) < 1e-10) {
             i++;
-            if (i === rows) {
+            if (i === m) {
                 i = r;
                 lead++;
-                if (lead === cols) return matrix;
+                if (lead === n) return A;
             }
         }
         
         // Swap rows
-        [matrix[r], matrix[i]] = [matrix[i], matrix[r]];
+        [A[r], A[i]] = [A[i], A[r]];
         
         // Normalize row
-        const val = matrix[r][lead];
-        for (let j = 0; j < cols; j++) {
-            matrix[r][j] /= val;
+        const val = A[r][lead];
+        for (let j = 0; j < n; j++) {
+            A[r][j] /= val;
         }
         
         // Eliminate other rows
-        for (let i = 0; i < rows; i++) {
+        for (let i = 0; i < m; i++) {
             if (i !== r) {
-                const val = matrix[i][lead];
-                for (let j = 0; j < cols; j++) {
-                    matrix[i][j] -= val * matrix[r][j];
+                const val = A[i][lead];
+                for (let j = 0; j < n; j++) {
+                    A[i][j] -= val * A[r][j];
                 }
             }
         }
@@ -371,19 +491,63 @@ function calculateRREF(vectors) {
         lead++;
     }
     
-    return matrix;
+    return A;
 }
 
-function findDependencyRelation(vectors) {
-    const rank = calculateRank(vectors);
-    return `At least ${vectors.length - rank} vector(s) can be expressed as a linear combination of the others.`;
+function findBasisVectors(matrix) {
+    const rank = calculateRank(matrix);
+    const basis = [];
+    
+    if (rank === 0) return basis;
+    
+    // Find pivot columns in RREF
+    const rref = calculateRREF(matrix);
+    
+    for (let col = 0; col < matrix[0].length && basis.length < rank; col++) {
+        for (let row = 0; row < matrix.length; row++) {
+            if (Math.abs(rref[row][col] - 1) < 1e-10) {
+                // Check if this is a pivot (1 in RREF and zeros in other rows)
+                let isPivot = true;
+                for (let r = 0; r < matrix.length; r++) {
+                    if (r !== row && Math.abs(rref[r][col]) > 1e-10) {
+                        isPivot = false;
+                        break;
+                    }
+                }
+                
+                if (isPivot) {
+                    basis.push(matrix[row]);
+                    break;
+                }
+            }
+        }
+    }
+    
+    return basis;
+}
+
+function findDependencyRelation(matrix) {
+    const rank = calculateRank(matrix);
+    
+    if (rank === matrix.length) {
+        return "Vectors are linearly independent (no dependency relation).";
+    }
+    
+    const dependentCount = matrix.length - rank;
+    
+    if (dependentCount === 1) {
+        return `There is 1 linearly dependent vector that can be expressed as a linear combination of the other ${rank} vectors.`;
+    } else {
+        return `There are ${dependentCount} linearly dependent vectors that can be expressed as linear combinations of the other ${rank} vectors.`;
+    }
 }
 
 function displayMathematicalResults(results) {
     let html = `
         <div class="result-item">
-            <div class="result-title"><i class="fas fa-ruler-combined"></i> Dimension</div>
-            <div class="result-value">${results.dimension}</div>
+            <div class="result-title"><i class="fas fa-cube"></i> Dimension</div>
+            <div class="result-value">${results.dimension}D</div>
+            <p>Analysis in ℝ<sup>${results.dimension}</sup> space</p>
         </div>
         
         <div class="result-item">
@@ -403,15 +567,39 @@ function displayMathematicalResults(results) {
         </div>
     `;
     
-    // Add determinant if available
+    // Add determinant if available (square matrix)
     if (results.determinant !== null) {
         html += `
             <div class="result-item">
                 <div class="result-title"><i class="fas fa-divide"></i> Determinant</div>
-                <div class="result-value">${results.determinant.toFixed(4)}</div>
+                <div class="result-value">${results.determinant.toFixed(6)}</div>
                 <p>${Math.abs(results.determinant) < 1e-10 ? 
                     'Zero determinant indicates linear dependency.' : 
                     'Non-zero determinant indicates linear independence.'}</p>
+            </div>
+        `;
+    }
+    
+    // Add basis vectors if available
+    if (results.basisVectors.length > 0) {
+        html += `
+            <div class="result-item">
+                <div class="result-title"><i class="fas fa-vector-square"></i> Basis Vectors (${results.basisVectors.length} found)</div>
+                <div class="matrix-display">
+        `;
+        
+        results.basisVectors.forEach((vector, idx) => {
+            html += `<div class="matrix-row">`;
+            html += `<div class="matrix-cell" style="min-width: 80px; background-color: #f8f9fa; border-right: none;">Basis ${idx + 1}:</div>`;
+            vector.forEach(component => {
+                html += `<div class="matrix-cell">${component.toFixed(2)}</div>`;
+            });
+            html += `</div>`;
+        });
+        
+        html += `
+                </div>
+                <p>These vectors form a basis for the subspace spanned by the input vectors.</p>
             </div>
         `;
     }
@@ -433,9 +621,20 @@ function displayMathematicalResults(results) {
     
     html += `
             </div>
-            <p>Pivot columns correspond to linearly independent vectors.</p>
+            <p>Pivot columns (with leading 1's) correspond to linearly independent vectors.</p>
         </div>
     `;
+    
+    // Add dimension info for higher dimensions
+    if (currentDimension > 3) {
+        html += `
+            <div class="dimension-info">
+                <h4><i class="fas fa-info-circle"></i> Higher Dimension Note</h4>
+                <p>For ${currentDimension}D vectors, graphical representation is not available. The analysis is performed mathematically using rank, determinant, and RREF methods.</p>
+                <p>Maximum possible rank in ℝ<sup>${currentDimension}</sup> is ${currentDimension}.</p>
+            </div>
+        `;
+    }
     
     // Add dependency relation if dependent
     if (results.dependencyRelation) {
@@ -458,16 +657,20 @@ function clearResults() {
         </div>
     `;
     
-    graphPlaceholder.style.display = 'flex';
-    graphCanvas.style.display = 'none';
-    
-    // Clear canvas
-    const ctx = graphCanvas.getContext('2d');
-    ctx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+    if (currentDimension <= 3) {
+        graphPlaceholder.style.display = 'flex';
+        graphCanvas.style.display = 'none';
+        
+        // Clear canvas
+        const ctx = graphCanvas.getContext('2d');
+        ctx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+    }
 }
 
-// ===== Graph Functions =====
+// ===== Graph Functions (Only for 2D and 3D) =====
 function drawGraph() {
+    if (currentDimension > 3) return;
+    
     const ctx = graphCanvas.getContext('2d');
     const width = graphCanvas.width;
     const height = graphCanvas.height;
@@ -480,9 +683,9 @@ function drawGraph() {
     graphCanvas.style.display = 'block';
     
     // Draw based on dimension
-    if (currentDimension === '2D') {
+    if (currentDimension === 2) {
         draw2DGraph(ctx, width, height);
-    } else {
+    } else if (currentDimension === 3) {
         draw3DGraph(ctx, width, height);
     }
 }
@@ -747,6 +950,8 @@ function drawGraphPlaceholder() {
 }
 
 function toggleRotation() {
+    if (currentDimension !== 3) return;
+    
     isRotating = !isRotating;
     const icon = rotateBtn.querySelector('i');
     
@@ -761,7 +966,7 @@ function toggleRotation() {
 }
 
 function startRotation() {
-    if (!isRotating || currentDimension !== '3D') return;
+    if (!isRotating || currentDimension !== 3) return;
     
     graphRotation.y += 1;
     if (graphRotation.y >= 360) graphRotation.y = 0;
@@ -779,34 +984,22 @@ function toggleLabels() {
     showLabels = !showLabels;
     toggleLabelsBtn.classList.toggle('active', showLabels);
     
-    if (graphCanvas.style.display !== 'none') {
+    if (currentDimension <= 3 && graphCanvas.style.display !== 'none') {
         drawGraph();
     }
 }
 
 // ===== Utility Functions =====
 function generateRandomVectors() {
-    const count = vectors.length;
-    
     vectors = vectors.map(() => {
-        if (currentDimension === '2D') {
-            const angle = Math.random() * 2 * Math.PI;
-            const magnitude = 1 + Math.random() * 3;
-            return [
-                Math.cos(angle) * magnitude,
-                Math.sin(angle) * magnitude
-            ];
-        } else {
-            // Generate random 3D vector
-            const theta = Math.random() * 2 * Math.PI;
-            const phi = Math.random() * Math.PI;
-            const magnitude = 1 + Math.random() * 3;
-            return [
-                magnitude * Math.sin(phi) * Math.cos(theta),
-                magnitude * Math.sin(phi) * Math.sin(theta),
-                magnitude * Math.cos(phi)
-            ];
+        const vector = Array(currentDimension);
+        
+        for (let i = 0; i < currentDimension; i++) {
+            // Generate random number between -3 and 3
+            vector[i] = (Math.random() * 6 - 3).toFixed(2);
         }
+        
+        return vector.map(x => parseFloat(x));
     });
     
     updateVectorInputs();
@@ -816,36 +1009,39 @@ function generateRandomVectors() {
 function loadExample(example) {
     switch(example) {
         case '2D-dependent':
-            currentDimension = '2D';
-            dimensionBtns.forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.dim === '2D');
-            });
-            vectors = [[1, 2], [2, 4]]; // v2 = 2 * v1
+            dimensionInput.value = 2;
+            dimensionInput.dispatchEvent(new Event('change'));
+            vectors = [[1, 2], [2, 4], [3, 6]]; // All multiples
             break;
         case '2D-independent':
-            currentDimension = '2D';
-            dimensionBtns.forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.dim === '2D');
-            });
-            vectors = [[1, 0], [0, 1]]; // Standard basis
+            dimensionInput.value = 2;
+            dimensionInput.dispatchEvent(new Event('change'));
+            vectors = [[1, 0], [0, 1], [1, 1]]; // Basis + combination
             break;
         case '3D-dependent':
-            currentDimension = '3D';
-            dimensionBtns.forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.dim === '3D');
-            });
+            dimensionInput.value = 3;
+            dimensionInput.dispatchEvent(new Event('change'));
             vectors = [[1, 2, 3], [2, 4, 6], [3, 6, 9]]; // All multiples
             break;
         case '3D-independent':
-            currentDimension = '3D';
-            dimensionBtns.forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.dim === '3D');
-            });
+            dimensionInput.value = 3;
+            dimensionInput.dispatchEvent(new Event('change'));
             vectors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]; // Standard basis
+            break;
+        case '4D-dependent':
+            dimensionInput.value = 4;
+            dimensionInput.dispatchEvent(new Event('change'));
+            vectors = [[1, 2, 3, 4], [2, 4, 6, 8], [3, 6, 9, 12]];
+            break;
+        case '4D-independent':
+            dimensionInput.value = 4;
+            dimensionInput.dispatchEvent(new Event('change'));
+            vectors = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
             break;
     }
     
     updateVectorInputs();
+    updateVectorCount();
     updateVectorControls();
     clearResults();
 }
@@ -859,12 +1055,12 @@ function exportResults() {
     const results = calculateLinearAlgebraResults();
     let text = `Linear Algebra Vector Analysis - MathVortex Labs\n`;
     text += `Generated: ${new Date().toLocaleString()}\n\n`;
-    text += `Dimension: ${results.dimension}\n`;
+    text += `Dimension: ${results.dimension}D\n`;
     text += `Number of vectors: ${vectors.length}\n\n`;
     
     text += `Vectors:\n`;
     vectors.forEach((vector, index) => {
-        text += `  v${index + 1} = (${vector.join(', ')})\n`;
+        text += `  v${index + 1} = (${vector.map(x => x.toFixed(4)).join(', ')})\n`;
     });
     
     text += `\nAnalysis Results:\n`;
@@ -872,12 +1068,12 @@ function exportResults() {
     text += `  Linear Dependency: ${results.isLinearlyIndependent ? 'Independent' : 'Dependent'}\n`;
     
     if (results.determinant !== null) {
-        text += `  Determinant: ${results.determinant.toFixed(4)}\n`;
+        text += `  Determinant: ${results.determinant.toFixed(6)}\n`;
     }
     
     text += `\nReduced Row Echelon Form:\n`;
     results.rrefMatrix.forEach(row => {
-        text += `  [${row.map(val => val.toFixed(2)).join(', ')}]\n`;
+        text += `  [${row.map(val => val.toFixed(4)).join(', ')}]\n`;
     });
     
     if (results.dependencyRelation) {
@@ -889,7 +1085,7 @@ function exportResults() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `vector-analysis-${new Date().getTime()}.txt`;
+    a.download = `vector-analysis-${results.dimension}D-${new Date().getTime()}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -897,6 +1093,11 @@ function exportResults() {
 }
 
 function exportGraph() {
+    if (currentDimension > 3) {
+        alert('Graphical export is only available for 2D and 3D vectors');
+        return;
+    }
+    
     if (graphCanvas.style.display === 'none') {
         alert('Please analyze vectors first to generate a graph');
         return;
@@ -905,7 +1106,7 @@ function exportGraph() {
     const url = graphCanvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = url;
-    a.download = `vector-graph-${new Date().getTime()}.png`;
+    a.download = `vector-graph-${currentDimension}D-${new Date().getTime()}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -923,8 +1124,8 @@ function copyResults() {
     
     const results = calculateLinearAlgebraResults();
     let text = `Linear Algebra Vector Analysis\n`;
-    text += `Dimension: ${results.dimension}\n`;
-    text += `Vectors: ${vectors.map((v, i) => `v${i+1}=(${v.join(',')})`).join(', ')}\n`;
+    text += `Dimension: ${results.dimension}D\n`;
+    text += `Vectors: ${vectors.map((v, i) => `v${i+1}=(${v.map(x => x.toFixed(2)).join(',')})`).join(', ')}\n`;
     text += `Rank: ${results.rank}/${vectors.length}\n`;
     text += `Status: ${results.isLinearlyIndependent ? 'Independent' : 'Dependent'}\n`;
     
