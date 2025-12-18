@@ -38,7 +38,7 @@
     <main class="main-container">
         <header class="page-header">
             <h1>Linear Algebra Vector Checker</h1>
-            <p class="subtitle">Analyze linear dependency/independency of vectors in 2D and 3D space</p>
+            <p class="subtitle">Analyze linear dependency/independency of vectors in n-dimensional space</p>
         </header>
 
         <div class="dashboard">
@@ -47,14 +47,32 @@
                 
                 <div class="dimension-selector">
                     <h3>Select Dimension</h3>
-                    <div class="dimension-buttons">
-                        <button class="dimension-btn active" data-dim="2D">2D Vectors</button>
-                        <button class="dimension-btn" data-dim="3D">3D Vectors</button>
+                    <div class="dimension-control">
+                        <div class="dimension-input-group">
+                            <label for="dimensionInput">Enter Dimension (n):</label>
+                            <div class="dimension-input-container">
+                                <input type="number" id="dimensionInput" min="2" max="10" value="3" class="dimension-input">
+                                <span class="dimension-label">D</span>
+                            </div>
+                            <p class="dimension-note">2D/3D: Graphical + Mathematical | 4D+: Mathematical only</p>
+                        </div>
+                        <div class="quick-dimensions">
+                            <span>Quick:</span>
+                            <button class="quick-dim-btn" data-dim="2">2D</button>
+                            <button class="quick-dim-btn" data-dim="3">3D</button>
+                            <button class="quick-dim-btn" data-dim="4">4D</button>
+                            <button class="quick-dim-btn" data-dim="5">5D</button>
+                        </div>
                     </div>
                 </div>
                 
                 <div class="vector-input-section">
-                    <h3>Input Vectors</h3>
+                    <div class="section-header">
+                        <h3>Input Vectors</h3>
+                        <div class="vector-count">
+                            <span>Vectors: <span id="vectorCount">3</span></span>
+                        </div>
+                    </div>
                     <div class="vector-input-container" id="vectorInputs">
                         <!-- Vector inputs will be generated here -->
                     </div>
@@ -87,6 +105,8 @@
                         <button class="example-btn btn-small" data-example="2D-independent">2D Independent</button>
                         <button class="example-btn btn-small" data-example="3D-dependent">3D Dependent</button>
                         <button class="example-btn btn-small" data-example="3D-independent">3D Independent</button>
+                        <button class="example-btn btn-small" data-example="4D-dependent">4D Dependent</button>
+                        <button class="example-btn btn-small" data-example="4D-independent">4D Independent</button>
                     </div>
                 </div>
             </div>
@@ -102,13 +122,13 @@
                     </div>
                 </div>
                 
-                <div class="graphical-results card">
+                <div class="graphical-results card" id="graphicalResults">
                     <h2><i class="fas fa-chart-line"></i> Graphical Representation</h2>
                     <div class="graph-container">
                         <div class="graph-placeholder" id="graphPlaceholder">
                             <div class="placeholder-content">
                                 <i class="fas fa-chart-line"></i>
-                                <p>Visualization will appear here after analysis</p>
+                                <p>Visualization will appear here after analysis (2D/3D only)</p>
                             </div>
                         </div>
                         <canvas id="graphCanvas" width="600" height="400"></canvas>
@@ -123,6 +143,10 @@
                                 <i class="fas fa-tag"></i>
                             </button>
                         </div>
+                    </div>
+                    <div class="high-dim-note" id="highDimNote">
+                        <i class="fas fa-info-circle"></i>
+                        <p>Graphical representation is available only for 2D and 3D vectors. For higher dimensions, only mathematical analysis is shown.</p>
                     </div>
                 </div>
             </div>
